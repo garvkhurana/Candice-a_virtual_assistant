@@ -1,0 +1,240 @@
+def create_inference_script():
+    """Create a script for using the fine-tuned model"""
+    inference_code = '''
+import torch
+from transformers import AutoImageProcessor, AutoModelForObjectDetection
+from peft import PeftModel
+from PIL import Image
+import cv2
+import numpy as np
+import json
+
+class JARVISDetector:
+    def __init__(self, model_path="jarvis_lora_model", base_model="facebook/detr-resnet-50"):
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        
+        # Load processor
+        self.processor = AutoImageProcessor.from_pretrained(base_model)
+        
+        # Load base model and LoRA weights
+        base_model = AutoModelForObjectDetection.from_pretrained(base_model)
+        self.model = PeftModel.from_pretrained(base_model, model_path)
+        self.model.eval()
+        self.model.to(self.device)
+        
+        # Load class mapping
+        with open(f"{model_path}/class_mapping.json", "r") as f:
+            class_mapping = json.load(f)
+        self.id2label = class_mapping["id2label"]
+        self.label2id = class_mapping["label2id"]
+    
+    def detect(self, image_path, confidence_threshold=0.7):
+        """Detect objects in an image"""
+        # Load and preprocess image
+        image = Image.open(image_path).convert("RGB")
+        inputs = self.processor(images=image, return_tensors="pt")
+        inputs = {k: v.to(self.device) for k, v in inputs.items()}
+        
+        # Run inference
+        with torch.no_grad():
+            outputs = self.model(**inputs)
+        
+        # Process outputs
+        target_sizes = torch.tensor([image.size[::-1]])
+        results = self.processor.post_process_object_detection(
+            outputs, target_sizes=target_sizes, threshold=confidence_threshold
+        )[0]
+        
+        detections = []
+        for score, label, box in zip(results["scores"], results["labels"], results["boxes"]):
+            box = [round(i, 2) for i in box.tolist()]
+            detections.append({
+                "class": self.id2label[str(label.item())],
+                "confidence": round(score.item(), 3),
+                "bbox": box
+            })
+        
+        return detections
+
+# Usage example
+if __name__ == "__main__":
+    detector = JARVISDetector()
+    detections = detector.detect("test_image.jpg")
+    
+    for det in detections:
+        print(f"Detected: {det['class']} (confidence: {det['confidence']})")
+'''
+    
+    with open("jarvis_inference.py", "w") as f:
+        f.write(inference_code)
+    
+    print("💾 Created inference script: jarvis_inference.py")
+
+
+
+
+
+
+
+
+
+
+def create_annotation_tool():
+    """Simple annotation tool for creating bounding box labels"""
+    
+    class ImageAnnotator:
+        def __init__(self, dataset_dir: str):
+            self.dataset_dir = Path(dataset_dir)
+            self.current_image = None
+            self.current_path = None
+            self.annotations = []
+            self.drawing = False
+            self.start_point = None
+            self.current_class = None
+            
+        def mouse_callback(self, event, x, y, flags, param):
+            """Handle mouse events for drawing bounding boxes"""
+            if event == cv2.EVENT_LBUTTONDOWN:
+                self.drawing = True
+                self.start_point = (x, y)
+            
+            elif event == cv2.EVENT_LBUTTONUP:
+                self.drawing = False
+                if self.start_point and self.current_class:
+                    # Save bounding box
+                    bbox = {
+                        "class": self.current_class,
+                        "bbox": [
+                            min(self.start_point[0], x),
+                            min(self.start_point[1], y),
+                            abs(x - self.start_point[0]),
+                            abs(y - self.start_point[1])
+                        ]
+                    }
+                    self.annotations.append(bbox)
+                    print(f"✅ Added bbox for {self.current_class}: {bbox['bbox']}")
+        
+        def annotate_images(self, class_name: str):
+            """Annotate images for a specific class"""
+            class_dir = self.dataset_dir / class_name.replace(" ", "_")
+            image_paths = []
+            
+            # Collect all images
+            for subdir in ["web_scraping", "manual", "synthetic"]:
+                subdir_path = class_dir / subdir
+                if subdir_path.exists():
+                    image_paths.extend(list(subdir_path.glob("*.jpg")))
+            
+            if not image_paths:
+                print(f"❌ No images found for {class_name}")
+                return
+            
+            print(f"🖼️  Found {len(image_paths)} images for {class_name}")
+            print("📝 Instructions:")
+            print("- Left click and drag to draw bounding box")
+            print("- Press 's' to save annotations for current image")
+            print("- Press 'n' for next image")
+            print("- Press 'q' to quit")
+            
+            self.current_class = class_name
+            
+            for i, image_path in enumerate(image_paths):
+                print(f"\n📸 Annotating {i+1}/{len(image_paths)}: {image_path.name}")
+                
+                self.current_path = image_path
+                self.current_image = cv2.imread(str(image_path))
+                self.annotations = []
+                
+                if self.current_image is None:
+                    continue
+                
+                # Resize for annotation if too large
+                height, width = self.current_image.shape[:2]
+                if width > 1200:
+                    scale = 1200 / width
+                    new_width = int(width * scale)
+                    new_height = int(height * scale)
+                    self.current_image = cv2.resize(self.current_image, (new_width, new_height))
+                
+                cv2.namedWindow('Annotator')
+                cv2.setMouseCallback('Annotator', self.mouse_callback)
+                
+                while True:
+                    display_image = self.current_image.copy()
+                    
+                    # Draw existing bounding boxes
+                    for ann in self.annotations:
+                        bbox = ann["bbox"]
+                        cv2.rectangle(display_image, 
+                                    (bbox[0], bbox[1]), 
+                                    (bbox[0] + bbox[2], bbox[1] + bbox[3]), 
+                                    (0, 255, 0), 2)
+                        cv2.putText(display_image, ann["class"], 
+                                  (bbox[0], bbox[1] - 10), 
+                                  cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+                    
+                    cv2.imshow('Annotator', display_image)
+                    
+                    key = cv2.waitKey(1) & 0xFF
+                    if key == ord('s'):
+                        self.save_annotations()
+                        break
+                    elif key == ord('n'):
+                        break
+                    elif key == ord('q'):
+                        cv2.destroyAllWindows()
+                        return
+            
+            cv2.destroyAllWindows()
+        
+        def save_annotations(self):
+            """Save annotations to COCO format"""
+            if not self.annotations:
+                print("⚠️ No annotations to save")
+                return
+            
+            annotation_file = self.current_path.parent / f"{self.current_path.stem}_annotations.json"
+            
+            coco_format = {
+                "image": str(self.current_path),
+                "annotations": self.annotations
+            }
+            
+            with open(annotation_file, 'w') as f:
+                json.dump(coco_format, f, indent=2)
+            
+            print(f"💾 Saved {len(self.annotations)} annotations to {annotation_file}")
+    
+    return ImageAnnotator
+
+
+
+
+
+
+
+
+def setup_environment():
+    """Setup the training environment and install requirements"""
+    requirements = [
+        "torch",
+        "torchvision", 
+        "transformers>=4.30.0",
+        "peft>=0.4.0",
+        "bitsandbytes",
+        "accelerate",
+        "albumentations",
+        "opencv-python",
+        "pillow",
+        "numpy",
+        "tqdm",
+        "wandb",
+        "datasets"
+    ]
+    
+    print("Required packages:")
+    for req in requirements:
+        print(f"   pip install {req}")
+    
+    print("\n🔧 To install all requirements:")
+    print(f"pip install {' '.join(requirements)}")        
