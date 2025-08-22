@@ -26,3 +26,4 @@ wandb
 torchvision
 ipykernel
 google-search-results
+scikit-learn

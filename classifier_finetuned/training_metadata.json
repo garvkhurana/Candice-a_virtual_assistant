@@ -102,5 +102,19 @@
     "47": "wireless_charger",
     "48": "wireless_earbuds",
     "49": "wireless_mouse"
+  },
+  "best_val_accuracy": 93.2,
+  "test_accuracy": 92.0,
+  "num_classes": 50,
+  "train_samples": 3500,
+  "val_samples": 1000,
+  "test_samples": 500,
+  "model_config": {
+    "model_name": "microsoft/resnet-50",
+    "image_size": 224,
+    "num_epochs": 20,
+    "learning_rate": 0.0001,
+    "batch_size": 8,
+    "augmentation": true
   }
 }
