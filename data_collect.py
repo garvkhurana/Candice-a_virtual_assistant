@@ -2,7 +2,7 @@ import os
 import requests
 from serpapi import GoogleSearch
 
-API_KEY = "0ebc4dc72aa2609119dc1b8cf339608b20644ba4316df20996528b78cfeb168c"
+API_KEY = ""
 
 
 
