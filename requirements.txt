@@ -27,3 +27,4 @@ torchvision
 ipykernel
 google-search-results
 scikit-learn
+python-dotenv
