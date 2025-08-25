@@ -1,126 +1,41 @@
-from langchain_groq import ChatGroq
-from langchain_core.prompts.chat import ChatPromptTemplate
-from dataclasses import dataclass
-from collections import deque
-from dotenv import load_dotenv
-import json
+import whisper
+import sounddevice as sd
+from scipy.io.wavfile import write
+import tempfile
 import os
-import re
-
-load_dotenv()
-
-MEMORY_FILE = "memory.json"
 
 
-@dataclass
-class LLMResponseConfig:
-    model_name: str = "llama-3.3-70b-versatile"
-    message: str = (
-        "Your name is Friday, my personal assistant. "
-        "Always address me as MR.Garv or MR.Khurana before any response.\n\n"
-        "You must consider:\n"
-        "1. Current user query: {query}\n"
-        "2. Current detected object: {detected_object}\n"
-        "3. Past conversation history: {history}\n\n"
-        "Use the above context to provide the most accurate and polite response. "
-        "Be concise, but detailed if required."
-    )
-    temperature: float = 0.5
-    max_completion_tokens: int = 1024
-    top_p: int = 1
-    GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
+print("Loading Whisper model (tiny)...")
+whisper_model=None
+
+def record_and_transcribe(duration=5, fs=16000) -> str:
+    
+    try:
+        global whisper_model
+        if whisper_model is None:
+            whisper_model = whisper.load_model("tiny")
+        print(f" Recording for {duration} seconds...")
+        audio = sd.rec(int(duration * fs), samplerate=fs, channels=1, dtype='int16')
+        sd.wait()
+
+        
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp_wav:
+            write(tmp_wav.name, fs, audio)
+            temp_path = tmp_wav.name
+
+        print("📝 Transcribing...")
+        result = whisper_model.transcribe(temp_path, language="en")
+        text = result.get("text", "").strip()
+
+        os.remove(temp_path)
+
+        return text
+
+    except Exception as e:
+        print(f"Error in STT: {e}")
+        
 
 
-class LLMResponse:
-    def __init__(self, query: str = "", detected_object: str = "", config: LLMResponseConfig = LLMResponseConfig()):
-        self.config = config
-        self.memory = deque(maxlen=5)
-        self.current_detected_object = detected_object
-
-        if not config.GROQ_API_KEY:
-            raise ValueError("GROQ_API_KEY is missing! Set it in your environment variables.")
-
-        self.model = ChatGroq(
-            model=config.model_name,
-            temperature=config.temperature,
-            max_tokens=config.max_completion_tokens,
-            api_key=config.GROQ_API_KEY
-        )
-
-        self.prompt = ChatPromptTemplate.from_template(config.message)
-        self._load_memory()
-
-    def _load_memory(self):
-        if os.path.exists(MEMORY_FILE):
-            try:
-                with open(MEMORY_FILE, "r") as f:
-                    data = json.load(f)
-                    self.memory = deque(data, maxlen=5)
-                    if data:
-                        self.current_detected_object = data[-1]["detected_object"]
-            except Exception:
-                self.memory = deque(maxlen=5)
-
-    def _save_memory(self):
-        try:
-            with open(MEMORY_FILE, "w") as f:
-                json.dump(list(self.memory), f, indent=4)
-        except Exception as e:
-            print(f" Error saving memory: {e}")
-
-    def _format_history(self):
-        return "\n".join([
-            f"User: {m['query']} | Object: {m['detected_object']} | Friday: {m['response']}"
-            for m in list(self.memory)
-        ])
-
-    def get_response(self, query: str, detected_object: str = None):
-        # Check if user wants to forget context
-        if re.search(r"(forget|leave it|reset|clear)", query.lower()):
-            self.current_detected_object = ""
-            print(" Friday: Context cleared!")
-            return "Okay, MR.GARV. I've cleared the detected object context."
-
-        if detected_object:
-            self.current_detected_object = detected_object
-        elif not self.current_detected_object:
-            self.current_detected_object = "Unknown object"
-
-        history = self._format_history()
-        final_prompt = self.prompt.format_messages(
-            query=query,
-            detected_object=self.current_detected_object,
-            history=history
-        )
-
-        response = self.model.invoke(final_prompt)
-
-        new_entry = {
-            "query": query,
-            "detected_object": self.current_detected_object,
-            "response": response.content
-        }
-        self.memory.append(new_entry)
-        self._save_memory()
-
-        return response.content
-
-    def get_memory(self):
-        return list(self.memory)
-
-
-if __name__ == "__main__":
-    jarvis = LLMResponse()
-
-    print("\n Friday is ready! Type 'exit' to quit.")
-    while True:
-        query = input("\n You: ").strip()
-        if query.lower() in ["exit", "quit"]:
-            print(" Friday: Goodbye MR.Garv!")
-            break
-
-        answer = jarvis.get_response(query)
-        print(f" Friday: {answer}")
 
 
 
