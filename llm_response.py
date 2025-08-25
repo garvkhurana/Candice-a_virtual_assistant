@@ -15,7 +15,7 @@ class LLMResponseConfig:
     model_name: str = "llama-3.3-70b-versatile"
     message: str = (
         "Your name is Friday, my personal assistant. "
-        "Before any response, always address me as MR.GARV or MR.KHURANA. "
+        "Before any response, always address me as Mr.Garv or Mr.Khurana. "
         "You are assisting me based on the context of the '{detected_object}' shown on the screen "
         "and my current query '{query}'.\n\n"
 
@@ -93,8 +93,17 @@ class LLMResponse:
 
         return response.content
 
-    def get_memory(self):
-        return list(self.memory)
+    
+    def forget_memory(self):
+        self.memory.clear()
+        self.last_detected_object = ""
+        try:
+            if os.path.exists(MEMORY_FILE):
+                os.remove(MEMORY_FILE)
+        except Exception as e:    
+            print("exception found {e}")    
+
+
 
 
 if __name__ == "__main__":
@@ -107,6 +116,11 @@ if __name__ == "__main__":
         if query.lower() in ["exit", "quit", "stop"]:
             print("\n Friday: Goodbye MR.GARV! See you soon.")
             break
+
+        elif query.lower() in ["leave it ","just forget about it","forget about the object"]:
+            jarvis.forget_memory()
+            continue  
+
 
         detected_object = input("Enter detected object: ")
 

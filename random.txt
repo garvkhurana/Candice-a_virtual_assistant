@@ -17,7 +17,7 @@ class LLMResponseConfig:
     model_name: str = "llama-3.3-70b-versatile"
     message: str = (
         "Your name is Friday, my personal assistant. "
-        "Always address me as MR.GARV or MR.KHURANA before any response.\n\n"
+        "Always address me as MR.Garv or MR.Khurana before any response.\n\n"
         "You must consider:\n"
         "1. Current user query: {query}\n"
         "2. Current detected object: {detected_object}\n"
@@ -66,7 +66,7 @@ class LLMResponse:
             with open(MEMORY_FILE, "w") as f:
                 json.dump(list(self.memory), f, indent=4)
         except Exception as e:
-            print(f"⚠️ Error saving memory: {e}")
+            print(f" Error saving memory: {e}")
 
     def _format_history(self):
         return "\n".join([
@@ -78,16 +78,14 @@ class LLMResponse:
         # Check if user wants to forget context
         if re.search(r"(forget|leave it|reset|clear)", query.lower()):
             self.current_detected_object = ""
-            print("🧹 Friday: Context cleared!")
+            print(" Friday: Context cleared!")
             return "Okay, MR.GARV. I've cleared the detected object context."
 
-        # If no detected object provided, reuse previous one
         if detected_object:
             self.current_detected_object = detected_object
         elif not self.current_detected_object:
             self.current_detected_object = "Unknown object"
 
-        # Prepare final prompt with history
         history = self._format_history()
         final_prompt = self.prompt.format_messages(
             query=query,
@@ -97,7 +95,6 @@ class LLMResponse:
 
         response = self.model.invoke(final_prompt)
 
-        # Save new memory
         new_entry = {
             "query": query,
             "detected_object": self.current_detected_object,
@@ -115,16 +112,15 @@ class LLMResponse:
 if __name__ == "__main__":
     jarvis = LLMResponse()
 
-    print("\n🤖 Friday is ready! Type 'exit' to quit.")
+    print("\n Friday is ready! Type 'exit' to quit.")
     while True:
-        query = input("\n👤 You: ").strip()
+        query = input("\n You: ").strip()
         if query.lower() in ["exit", "quit"]:
-            print("👋 Friday: Goodbye MR.GARV!")
+            print(" Friday: Goodbye MR.Garv!")
             break
 
-        # Get response
         answer = jarvis.get_response(query)
-        print(f"🤖 Friday: {answer}")
+        print(f" Friday: {answer}")
 
 
 
