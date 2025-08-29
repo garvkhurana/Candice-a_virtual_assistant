@@ -14,7 +14,7 @@ MEMORY_FILE = "memory.json"
 class LLMResponseConfig:
     model_name: str = "llama-3.3-70b-versatile"
     message: str = (
-        "Your name is Friday, my personal assistant. "
+        "Your name is Candice, my personal assistant. "
         "Before any response, always address me as Mr.Garv or Mr.Khurana. "
         "You are assisting me based on the context of the '{detected_object}' shown on the screen "
         "and my current query '{query}'.\n\n"
@@ -107,14 +107,14 @@ class LLMResponse:
 
 
 if __name__ == "__main__":
-    jarvis = LLMResponse(query="", detected_object="")  
+    Candice = LLMResponse(query="", detected_object="")  
 
-    print("\n Friday is ready! Type 'exit' to end the conversation.\n")
+    print("\n Candice is ready! Type 'exit' to end the conversation.\n")
 
     while True:
         query = input("You: ")
         if query.lower() in ["exit", "quit", "stop"]:
-            print("\n Friday: Goodbye MR.GARV! See you soon.")
+            print("\n Candice: Goodbye MR.GARV! See you soon.")
             break
 
         elif query.lower() in ["leave it ","just forget about it","forget about the object"]:
@@ -125,4 +125,4 @@ if __name__ == "__main__":
         detected_object = input("Enter detected object: ")
 
         answer = jarvis.get_response(query=query, detected_object=detected_object)
-        print(f"\nFriday: {answer}\n")
+        print(f"\Candice: {answer}\n")

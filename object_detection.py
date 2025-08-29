@@ -7,7 +7,7 @@ import time
 from transformers import DetrImageProcessor, DetrForObjectDetection
 from safetensors.torch import load_file
 
-print(" Object Detection System Starting...")
+print(" Candice Object Detection System Starting...")
 
 detection_model = None
 processor = None
@@ -283,7 +283,7 @@ def main():
         print(" Cannot open camera")
         return
     
-    print("JARVIS is ready! Using fine-tuned model for detection. Press 'q' to quit")
+    print("Candice is ready! Using fine-tuned model for detection. Press 'q' to quit")
     print(f"Trained to detect: {', '.join(HOUSEHOLD_CLASSES[:5])}... and {len(HOUSEHOLD_CLASSES)-5} more objects")
     
     frame_count = 0
@@ -335,26 +335,26 @@ def main():
             cv.line(frame, (center_x - 20, center_y), (center_x + 20, center_y), (0, 255, 255), 2)
             cv.line(frame, (center_x, center_y - 20), (center_x, center_y + 20), (0, 255, 255), 2)
             
-            cv.putText(frame, "Fine-tuned JARVIS detecting household objects", 
+            cv.putText(frame, "Fine-tuned Candice detecting household objects", 
                       (10, frame.shape[0] - 60), cv.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
             cv.putText(frame, "Hold object in center area", 
                       (10, frame.shape[0] - 40), cv.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
             cv.putText(frame, "Press Q to quit", 
                       (10, frame.shape[0] - 20), cv.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
             
-            cv.imshow('JARVIS Fine-tuned Object Detection', frame)
+            cv.imshow('Candice Fine-tuned Object Detection', frame)
             
             key = cv.waitKey(1) & 0xFF
             if key == ord('q'):
                 break
     
     except KeyboardInterrupt:
-        print("\n JARVIS shutting down...")
+        print("\n Candice shutting down...")
     
     finally:
         cap.release()
         cv.destroyAllWindows()
-        print(" JARVIS offline. Goodbye!")
+        print(" Candice offline. Goodbye!")
 
 if __name__ == "__main__":
     main()
