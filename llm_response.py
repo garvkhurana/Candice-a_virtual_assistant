@@ -15,7 +15,7 @@ class LLMResponseConfig:
     model_name: str = "llama-3.3-70b-versatile"
     message: str = ("""
         Your name is Candice, my personal AI assistant.  
-Before responding, you must always address me respectfully as either **Mr. Garv** or **Mr. Khurana**.  
+Before responding, you must always address me respectfully as either Mr. Garv or Mr. Khurana.  
 
 You are assisting me based on:  
 - The **current detected object**: '{detected_object}'  
@@ -28,9 +28,8 @@ Additionally, here is the **memory** from our previous interaction:
 
 Using this information, provide a **highly accurate, context-aware, and polite response**.  
 Always ensure **continuity** between the past and current conversation, connect relevant details when possible, and keep responses **clear, concise, and assistant-like**.  
-Your primary role is to act as my **personal assistant**, maintaining a professional yet natural tone at all times.  """
-
-    )
+Your primary role is to act as my **personal assistant**, maintaining a professional yet natural tone at all times.
+    """)
     temperature: float = 0.5
     max_completion_tokens: int = 1024
     top_p: int = 1
@@ -41,6 +40,7 @@ class LLMResponse:
     def __init__(self, query: str, detected_object: str, config: LLMResponseConfig = LLMResponseConfig()):
         self.config = config
         self.memory = deque(maxlen=5)
+        self.last_detected_object = detected_object
 
         if not config.GROQ_API_KEY:
             raise ValueError("GROQ_API_KEY is missing! Set it in your environment variables.")
@@ -62,6 +62,8 @@ class LLMResponse:
                 with open(MEMORY_FILE, "r") as f:
                     data = json.load(f)
                     self.memory = deque(data, maxlen=5)
+                    if self.memory:
+                        self.last_detected_object = self.memory[-1]["detected_object"]
             except Exception:
                 self.memory = deque(maxlen=5)
 
@@ -72,7 +74,10 @@ class LLMResponse:
         except Exception as e:
             print(f" Error saving memory: {e}")
 
-    def get_response(self, query: str, detected_object: str):
+    def get_response(self, query: str, detected_object: str = None):
+        if not detected_object:
+            detected_object = self.last_detected_object
+
         prev_query = self.memory[-1]["query"] if self.memory else "None"
         prev_detected_object = self.memory[-1]["detected_object"] if self.memory else "None"
         prev_response = self.memory[-1]["response"] if self.memory else "None"
@@ -92,41 +97,45 @@ class LLMResponse:
             "detected_object": detected_object,
             "response": response.content
         })
-
+        self.last_detected_object = detected_object
         self._save_memory()
 
         return response.content
 
-    
     def forget_memory(self):
         self.memory.clear()
         self.last_detected_object = ""
         try:
             if os.path.exists(MEMORY_FILE):
                 os.remove(MEMORY_FILE)
-        except Exception as e:    
-            print("exception found {e}")    
-
-
+        except Exception as e:
+            print(f"Exception while clearing memory: {e}")
 
 
 if __name__ == "__main__":
-    Candice = LLMResponse(query="", detected_object="")  
+    Candice = LLMResponse(query="", detected_object="")
 
-    print("\n Candice is ready! Type 'exit' to end the conversation.\n")
+    print("\nCandice is ready! Type 'exit' to end the conversation.\n")
 
     while True:
-        query = input("You: ")
-        if query.lower() in ["exit", "quit", "stop"]:
-            print("\n Candice: Goodbye MR.GARV! See you soon.")
+        query = input("You: ").strip().lower()
+
+        
+        if query in ["exit", "quit", "stop"]:
+            print("\nCandice: Goodbye Mr. Garv! See you soon.")
             break
 
-        elif query.lower() in ["leave it ","just forget about it","forget about the object"]:
-            jarvis.forget_memory()
-            continue  
+        
+        elif query in ["leave it", "forget it", "just forget about it", "forget about the object"]:
+            Candice.forget_memory()
+            print("Candice: Okay Mr. Garv, I’ve cleared our previous context.")
+            continue
 
+       
+        if not Candice.last_detected_object:
+            detected_object = input("Enter detected object: ").strip()
+        else:
+            detected_object = None  
 
-        detected_object = input("Enter detected object: ")
-
-        answer = jarvis.get_response(query=query, detected_object=detected_object)
-        print(f"\Candice: {answer}\n")
+        answer = Candice.get_response(query=query, detected_object=detected_object)
+        print(f"\nCandice: {answer}\n")
