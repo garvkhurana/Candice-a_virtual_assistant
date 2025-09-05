@@ -7,5 +7,5 @@ wheels/
 
 # Virtual environments
 venv
-images_for_finetuning/
 .env
+Custom Workflow Object Detection.v2i.yolov11

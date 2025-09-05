@@ -4,7 +4,6 @@ from scipy.io import wavfile
 from dataclasses import dataclass
 from groq import Groq
 from dotenv import load_dotenv
-from llm_response import get_llm_response  
 
 load_dotenv()
 
